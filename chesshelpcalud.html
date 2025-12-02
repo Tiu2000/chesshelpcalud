@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Chess Scenario Builder</title>
+  <style>
+    :root{--light:#f0d9b5;--dark:#b58863;--accent:#2b6cb0;--highlight:rgba(255, 255, 0, 0.4);--move-dot:rgba(43,108,176,.5)}
+    * {-webkit-tap-highlight-color: transparent;}
+    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; padding:8px; background:#f7fafc; color:#111; overflow-x:hidden}
+    .app{display:flex; flex-direction:column; gap:12px; max-width:900px; margin:0 auto; padding-bottom:20px}
+    header{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    h1{font-size:18px;margin:0;flex:1;min-width:200px}
+    .panel{background:#fff;border-radius:12px;padding:12px;box-shadow:0 4px 12px rgba(2,6,23,.08)}
+    .board-wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+    .board{width:min(96vw, 560px); aspect-ratio:1; display:grid; grid-template-columns:repeat(8,1fr); border-radius:8px; overflow:hidden; touch-action:none; position:relative; box-shadow:0 0 12px rgba(0,0,0,0.3); user-select:none}
+    .board::after{content:'TIU';position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(0,0,0,0.15);font-weight:600;letter-spacing:1px;pointer-events:none;z-index:5}
+    .square{width:100%;height:100%; display:flex;align-items:center;justify-content:center; font-size:clamp(32px, 9vw, 64px); user-select:none; position:relative; transition:background 0.15s; cursor:pointer}
+    .sq-light{background:var(--light)}
+    .sq-dark{background:var(--dark)}
+    .piece{width:100%;height:100%;display:flex;align-items:center;justify-content:center; font-size:1em; pointer-events:none; transition:transform 0.1s; -webkit-user-select:none; user-select:none}
+    .square:active .piece{transform:scale(1.1)}
+    .selected{background:var(--highlight) !important; box-shadow:inset 0 0 0 3px var(--accent)}
+    .highlight{box-shadow:inset 0 0 0 3px #00aaff !important;}
+    .legal-dot{position:absolute; width:28%; height:28%; background:var(--move-dot); border-radius:50%; pointer-events:none; z-index: 10;}
+    .legal-capture:before{content:''; position:absolute; width:75%; height:75%; border:6px solid var(--move-dot); border-radius:50%; box-sizing: border-box; z-index: 10;}
+    .palette{display:grid;grid-template-columns:repeat(auto-fit, minmax(50px, 1fr));gap:8px;padding:8px;max-width:100%}
+    .cell{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border:2px solid #ccc;cursor:pointer; font-size:clamp(28px, 7vw, 40px); line-height:1; transition:all 0.15s; min-height:50px}
+    .cell:active{transform:scale(0.95); background:#e0e0e0}
+    .cell.active{background:#d0e8ff; border-color:var(--accent); box-shadow:0 0 0 2px var(--accent)}
+    .remove-cell{background:#f06b6b; color:#fff; font-weight:bold}
+    .remove-cell:active{background:#d05555}
+    textarea{width:100%;height:60px;font-family:monospace; font-size:13px; resize:vertical; padding:10px; border:2px solid #ddd; border-radius:8px; box-sizing:border-box}
+    .btn{background:var(--accent);color:#fff;padding:12px 16px;border-radius:8px;border:none;cursor:pointer; transition:all 0.2s; font-size:14px; font-weight:500; min-height:44px; white-space:nowrap}
+    .btn:active{transform:scale(0.97); background:#1e5a8e}
+    .btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+    .btn.ghost:active{background:rgba(43,108,176,0.1)}
+    .btn-group{display:flex;gap:8px;flex-wrap:wrap}
+    .section{margin-bottom:16px}
+    .section-title{font-weight:600;margin-bottom:8px;font-size:15px;color:#333}
+    .collapsible{margin-bottom:12px}
+    .collapsible-header{display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f8f9fa;border-radius:8px;cursor:pointer;user-select:none}
+    .collapsible-header:active{background:#e9ecef}
+    .collapsible-content{max-height:0;overflow:hidden;transition:max-height 0.3s ease-out}
+    .collapsible-content.open{max-height:500px;padding-top:10px}
+    .notification{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#ff6b6b;color:white;padding:12px 24px;border-radius:8px;font-weight:bold;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:slideDown 0.3s ease-out}
+    @keyframes slideDown{from{top:-50px;opacity:0}to{top:20px;opacity:1}}
+    .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:20px;pointer-events:none}
+    .modal.show{display:flex}
+    .modal-content{background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;pointer-events:auto}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .modal-close{font-size:28px;cursor:pointer;color:#666;line-height:1}
+    @media (max-width:600px){
+      body{padding:4px}
+      h1{font-size:16px}
+      .panel{padding:10px;border-radius:10px}
+      .btn{padding:10px 12px;font-size:13px;min-height:40px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>♟️ Chess Scenario Builder</h1>
+      <div class="btn-group" style="margin-left:auto">
+        <button id="flipBtn" class="btn ghost">Flip</button>
+        <button id="clearBtn" class="btn ghost">Clear</button>
+        <button id="defaultBtn" class="btn">Start</button>
+      </div>
+    </header>
+
+    <main class="panel board-wrap">
+      <div style="width:100%;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="font-size:16px">Turn: <span id="turn" style="font-weight:bold;color:var(--accent)">White</span></div>
+        <div class="btn-group">
+          <button id="undoBtn" class="btn ghost">↶ Undo</button>
+          <button id="paletteBtn" class="btn">🎨 Pieces</button>
+        </div>
+      </div>
+      <div id="board" class="board" tabindex="0"></div>
+    </main>
+
+    <aside class="panel">
+      <div class="collapsible">
+        <div class="collapsible-header" onclick="toggleCollapse(this)">
+          <span class="section-title">⚙️ Setup & Tools</span>
+          <span style="font-size:20px">▼</span>
+        </div>
+        <div class="collapsible-content">
+          <div class="section">
+            <label style="display:block;margin-bottom:6px;font-weight:500">FEN Position</label>
+            <textarea id="fen" placeholder="Paste FEN here..."></textarea>
+            <div class="btn-group" style="margin-top:8px">
+              <button id="loadFen" class="btn">Load</button>
+              <button id="exportFen" class="btn ghost">Export</button>
+              <button id="copyFen" class="btn ghost">📋 Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="collapsible">
+        <div class="collapsible-header" onclick="toggleCollapse(this)">
+          <span class="section-title">🤖 Engine Analysis</span>
+          <span style="font-size:20px">▼</span>
+        </div>
+        <div class="collapsible-content">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+            <label>Depth: <input type="number" id="depthRange" min="1" max="8" value="4" style="width:60px;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px"></label>
+            <button id="bestBtn" class="btn">Find Best Move</button>
+          </div>
+          <div id="engineOut" style="font-family:monospace;font-size:13px;white-space:pre-wrap;min-height:40px;color:#222;background:#f0f7ff;padding:10px;border-radius:8px">Ready for analysis.</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="downloadPng" class="btn">📸 Screenshot</button>
+        <button id="showHistory" class="btn ghost">📜 History</button>
+      </div>
+    </aside>
+
+    <footer style="text-align:center; font-size:11px; color:#999; margin-top:8px">
+      Powered by chess.js • Mobile optimized • TIU
+    </footer>
+  </div>
+
+  <!-- Piece Palette Modal -->
+  <div id="paletteModal" class="modal">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="margin:0">Select Piece</h3>
+        <span class="modal-close" onclick="closePaletteModal()">×</span>
+      </div>
+      <div style="font-size:13px;color:#666;margin-bottom:12px">Tap a piece, then tap board squares to place. Modal stays open for multiple placements.</div>
+      <div class="palette" id="palette"></div>
+      <button onclick="closePaletteModal()" class="btn" style="width:100%;margin-top:12px">Done</button>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="historyModal" class="modal">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="margin:0">Move History</h3>
+        <span class="modal-close" onclick="closeHistoryModal()">×</span>
+      </div>
+      <div id="historyContent" style="font-family:monospace;font-size:14px;white-space:pre-wrap;max-height:400px;overflow-y:auto;line-height:1.6"></div>
+      <button onclick="closeHistoryModal()" class="btn" style="width:100%;margin-top:12px">Close</button>
+    </div>
+  </div>
+
+<script>
+function toggleCollapse(header) {
+  const content = header.nextElementSibling;
+  const arrow = header.querySelector('span:last-child');
+  content.classList.toggle('open');
+  arrow.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0)';
+}
+
+function closePaletteModal() {
+  document.getElementById('paletteModal').classList.remove('show');
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+  window.selectedPalettePiece = null;
+  const notifs = document.querySelectorAll('.notification');
+  notifs.forEach(n => n.remove());
+}
+
+function closeHistoryModal() {
+  document.getElementById('historyModal').classList.remove('show');
+}
+
+// Load chess.js first, then initialize
+(function() {
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js';
+  script.onload = function() {
+    console.log('Chess.js loaded successfully');
+    initChessApp();
+  };
+  script.onerror = function() {
+    document.getElementById('board').innerHTML = '<div style="color:red;padding:20px">Failed to load chess.js library.</div>';
+  };
+  document.head.appendChild(script);
+})();
+
+function initChessApp() {
+  const PIECES = ['K','Q','R','B','N','P'];
+  const UNICODE = {
+    wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',
+    bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'
+  };
+
+  const palette = document.getElementById('palette');
+  const boardEl = document.getElementById('board');
+  const fenBox = document.getElementById('fen');
+  const engineOut = document.getElementById('engineOut');
+  const turnEl = document.getElementById('turn');
+
+  const chess = new Chess();
+  let selectedSquare = null;
+  let moveHistory = [];
+  window.selectedPalettePiece = null;
+
+  // Generate board HTML
+  function generateBoard() {
+    let html = '';
+    for (let r = 8; r >= 1; r--) {
+      for (let f = 1; f <= 8; f++) {
+        const file = String.fromCharCode(96 + f);
+        const sq = file + r;
+        const colorClass = ((f + r) % 2) ? 'sq-dark' : 'sq-light';
+        html += `<div class="square ${colorClass}" data-square="${sq}"></div>`;
+      }
+    }
+    return html;
+  }
+
+  // Create piece palette
+  function makePalette() {
+    palette.innerHTML = '';
+    const colors = ['w','b'];
+    colors.forEach(c => {
+      PIECES.forEach(p => {
+        const code = c + p;
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.piece = (c === 'w' ? p.toLowerCase() : p.toUpperCase());
+        cell.innerHTML = UNICODE[code];
+        cell.addEventListener('click', handlePaletteClick);
+        cell.addEventListener('touchend', handlePaletteClick);
+        palette.appendChild(cell);
+      });
+    });
+    
+    const removeCell = document.createElement('div');
+    removeCell.className = 'cell remove-cell';
+    removeCell.innerHTML = '✕';
+    removeCell.dataset.piece = '';
+    removeCell.addEventListener('click', handlePaletteClick);
+    removeCell.addEventListener('touchend', handlePaletteClick);
+    palette.appendChild(removeCell);
+  }
+
+  function handlePaletteClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const target = e.currentTarget;
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+    target.classList.add('active');
+    window.selectedPalettePiece = target.dataset.piece;
+    
+    // Visual feedback
+    const pieceChar = target.dataset.piece;
+    if (pieceChar === '') {
+      showNotification('Tap square to remove piece', '#ff9800');
+    } else {
+      showNotification('Tap square to place piece', '#4caf50');
+    }
+    
+    console.log('Selected piece:', window.selectedPalettePiece);
+  }
+
+  // Refresh board display
+  function refreshBoard() {
+    const board = chess.board();
+    clearHighlights();
+
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const piece = board[r][f];
+        const file = String.fromCharCode(97 + f);
+        const rank = 8 - r;
+        const sq = file + rank;
+        const sqEl = boardEl.querySelector(`[data-square="${sq}"]`);
+        if (!sqEl) continue;
+        
+        sqEl.innerHTML = '';
+
+        if (piece) {
+          const p = document.createElement('div');
+          p.className = 'piece';
+          const key = (piece.color === 'w' ? 'w' : 'b') + piece.type.toUpperCase();
+          p.innerText = UNICODE[key];
+          p.dataset.piece = (piece.color === 'w' ? piece.type : piece.type.toUpperCase());
+          sqEl.appendChild(p);
+        }
+      }
+    }
+    
+    turnEl.innerText = chess.turn() === 'w' ? 'White' : 'Black';
+    updateFenBox();
+  }
+
+  function clearHighlights() {
+    boardEl.querySelectorAll('.square').forEach(s => {
+      s.classList.remove('selected', 'highlight', 'legal-capture');
+      const dot = s.querySelector('.legal-dot');
+      if (dot) dot.remove();
+    });
+    selectedSquare = null;
+  }
+
+  function showLegalMoves(fromSq) {
+    const moves = chess.moves({square: fromSq, verbose: true});
+    moves.forEach(move => {
+      const toSqEl = boardEl.querySelector(`[data-square="${move.to}"]`);
+      if (toSqEl) {
+        if (move.captured || chess.get(move.to)) {
+          toSqEl.classList.add('legal-capture');
+        } else {
+          const dot = document.createElement('div');
+          dot.className = 'legal-dot';
+          toSqEl.appendChild(dot);
+        }
+      }
+    });
+  }
+
+  function handleSquareClick(e) {
+    if (e.type === 'touchend') {
+      e.preventDefault();
+    }
+    e.stopPropagation();
+    const sqEl = e.currentTarget;
+    const sq = sqEl.dataset.square;
+
+    console.log('Square clicked:', sq, 'Palette piece selected:', window.selectedPalettePiece);
+
+    // If palette piece is selected, place it
+    if (window.selectedPalettePiece !== null && window.selectedPalettePiece !== undefined) {
+      console.log('Placing piece:', window.selectedPalettePiece, 'on', sq);
+      const pieceChar = window.selectedPalettePiece;
+      if (pieceChar === '') {
+        chess.remove(sq);
+        console.log('Removed piece from', sq);
+      } else {
+        const color = (pieceChar === pieceChar.toUpperCase()) ? 'b' : 'w';
+        const type = pieceChar.toLowerCase();
+        chess.remove(sq);
+        const result = chess.put({type: type, color: color}, sq);
+        console.log('Put piece result:', result, 'Type:', type, 'Color:', color);
+      }
+      refreshBoard();
+      showNotification('Piece placed!', '#4caf50');
+      // Keep palette piece selected for multiple placements
+      return;
+    }
+
+    const pieceOnSq = chess.get(sq);
+
+    // Double-click same square to deselect
+    if (selectedSquare === sq) {
+      clearHighlights();
+      return;
+    }
+
+    // Try to move if we have a selected square
+    if (selectedSquare) {
+      const from = selectedSquare;
+      const moveObj = chess.move({from: from, to: sq, promotion: 'q'});
+      if (moveObj) {
+        moveHistory.push({fen: chess.fen(), move: moveObj.san});
+        clearHighlights();
+        refreshBoard();
+        checkGameStatus();
+        return;
+      }
+    }
+
+    // Select piece if clicking on one
+    if (pieceOnSq) {
+      clearHighlights();
+      selectedSquare = sq;
+      sqEl.classList.add('selected');
+      showLegalMoves(sq);
+    } else {
+      clearHighlights();
+    }
+  }
+
+  function highlightMove(from, to) {
+    clearHighlights();
+    const f = boardEl.querySelector(`[data-square="${from}"]`);
+    const t = boardEl.querySelector(`[data-square="${to}"]`);
+    if (f) f.classList.add('highlight');
+    if (t) t.classList.add('highlight');
+    setTimeout(clearHighlights, 2200);
+  }
+
+  function updateFenBox() {
+    fenBox.value = chess.fen();
+  }
+
+  function showNotification(message, bgColor = '#ff6b6b') {
+    const existing = document.querySelector('.notification');
+    if (existing) existing.remove();
+    
+    const notif = document.createElement('div');
+    notif.className = 'notification';
+    notif.style.background = bgColor;
+    notif.textContent = message;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 2000);
+  }
+
+  function checkGameStatus() {
+    if (chess.in_checkmate()) {
+      setTimeout(() => showNotification(`Checkmate! ${chess.turn() === 'w' ? 'Black' : 'White'} wins!`, '#4caf50'), 100);
+    } else if (chess.in_check()) {
+      setTimeout(() => showNotification('Check!', '#ff6b6b'), 100);
+    } else if (chess.in_stalemate()) {
+      setTimeout(() => showNotification('Stalemate! Draw.', '#ff9800'), 100);
+    } else if (chess.in_draw()) {
+      setTimeout(() => showNotification('Draw!', '#ff9800'), 100);
+    }
+  }
+
+  // Simple evaluation function with positional bonuses
+  function evaluateSimple(position) {
+    const values = {p: 1, n: 3, b: 3, r: 5, q: 9, k: 0};
+    
+    const pawnTable = [
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [5, 5, 5, 5, 5, 5, 5, 5],
+      [1, 1, 2, 3, 3, 2, 1, 1],
+      [0.5, 0.5, 1, 2.5, 2.5, 1, 0.5, 0.5],
+      [0, 0, 0, 2, 2, 0, 0, 0],
+      [0.5, -0.5, -1, 0, 0, -1, -0.5, 0.5],
+      [0.5, 1, 1, -2, -2, 1, 1, 0.5],
+      [0, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    
+    const knightTable = [
+      [-5, -4, -3, -3, -3, -3, -4, -5],
+      [-4, -2, 0, 0, 0, 0, -2, -4],
+      [-3, 0, 1, 1.5, 1.5, 1, 0, -3],
+      [-3, 0.5, 1.5, 2, 2, 1.5, 0.5, -3],
+      [-3, 0, 1.5, 2, 2, 1.5, 0, -3],
+      [-3, 0.5, 1, 1.5, 1.5, 1, 0.5, -3],
+      [-4, -2, 0, 0.5, 0.5, 0, -2, -4],
+      [-5, -4, -3, -3, -3, -3, -4, -5]
+    ];
+    
+    let s = 0;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = position[r][c];
+        if (piece) {
+          const baseVal = values[piece.type];
+          let posBonus = 0;
+          
+          if (piece.type === 'p') {
+            posBonus = piece.color === 'w' ? pawnTable[7-r][c] / 10 : pawnTable[r][c] / 10;
+          } else if (piece.type === 'n') {
+            posBonus = piece.color === 'w' ? knightTable[7-r][c] / 10 : knightTable[r][c] / 10;
+          }
+          
+          s += (piece.color === 'w' ? 1 : -1) * (baseVal + posBonus);
+        }
+      }
+    }
+    return s;
+  }
+
+  // Minimax algorithm with alpha-beta pruning
+  function minimax(game, depth, alpha, beta, isMax) {
+    if (depth === 0 || game.game_over()) {
+      return {score: evaluateSimple(game.board())};
+    }
+    
+    const moves = game.moves({verbose: true});
+    let bestMove = null;
+
+    if (isMax) {
+      let best = -99999;
+      for (const m of moves) {
+        game.move(m);
+        const val = minimax(game, depth - 1, alpha, beta, false).score;
+        game.undo();
+        if (val > best) {
+          best = val;
+          bestMove = m;
+        }
+        alpha = Math.max(alpha, val);
+        if (beta <= alpha) break;
+      }
+      return {score: best, move: bestMove};
+    } else {
+      let best = 99999;
+      for (const m of moves) {
+        game.move(m);
+        const val = minimax(game, depth - 1, alpha, beta, true).score;
+        game.undo();
+        if (val < best) {
+          best = val;
+          bestMove = m;
+        }
+        beta = Math.min(beta, val);
+        if (beta <= alpha) break;
+      }
+      return {score: best, move: bestMove};
+    }
+  }
+
+  // Event listeners
+  document.getElementById('paletteBtn').addEventListener('click', () => {
+    document.getElementById('paletteModal').classList.add('show');
+  });
+
+  document.getElementById('loadFen').addEventListener('click', () => {
+    const f = fenBox.value.trim();
+    if (!f) return showNotification('Enter a FEN string', '#ff9800');
+    if (!chess.load(f)) return showNotification('Invalid FEN', '#ff6b6b');
+    moveHistory = [];
+    window.selectedPalettePiece = null;
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+    refreshBoard();
+    showNotification('Position loaded!', '#4caf50');
+  });
+
+  document.getElementById('exportFen').addEventListener('click', () => {
+    updateFenBox();
+    showNotification('FEN updated!', '#4caf50');
+  });
+  
+  document.getElementById('defaultBtn').addEventListener('click', () => {
+    chess.reset();
+    moveHistory = [];
+    window.selectedPalettePiece = null;
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+    refreshBoard();
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    chess.clear();
+    moveHistory = [];
+    window.selectedPalettePiece = null;
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+    refreshBoard();
+  });
+
+  document.getElementById('flipBtn').addEventListener('click', () => {
+    const flipped = boardEl.style.transform === 'rotate(180deg)';
+    boardEl.style.transform = flipped ? 'none' : 'rotate(180deg)';
+    Array.from(boardEl.querySelectorAll('.piece')).forEach(p => 
+      p.style.transform = flipped ? 'none' : 'rotate(180deg)'
+    );
+  });
+
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    chess.undo();
+    if (moveHistory.length > 0) moveHistory.pop();
+    refreshBoard();
+  });
+
+  document.getElementById('bestBtn').addEventListener('click', () => {
+    const depth = parseInt(document.getElementById('depthRange').value, 10);
+    engineOut.innerText = `Analyzing at depth ${depth}...`;
+
+    setTimeout(() => {
+      const copy = new Chess(chess.fen());
+      const isWhiteTurn = chess.turn() === 'w';
+      const res = minimax(copy, depth, -99999, 99999, isWhiteTurn);
+
+      if (res && res.move) {
+        const moveSan = copy.move({from: res.move.from, to: res.move.to, promotion: 'q'});
+        engineOut.innerText = `Best: ${res.move.from}→${res.move.to} (${moveSan.san})\nEval: ${res.score > 0 ? '+' : ''}${res.score}`;
+        highlightMove(res.move.from, res.move.to);
+      } else if (copy.game_over()) {
+        engineOut.innerText = copy.in_checkmate() ? '🏁 Checkmate!' : '🤝 Draw/Stalemate';
+      } else {
+        engineOut.innerText = 'No legal moves found.';
+      }
+    }, 50);
+  });
+
+  document.getElementById('downloadPng').addEventListener('click', () => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = () => {
+      html2canvas(boardEl).then(canvas => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'chess_position.png';
+        a.click();
+        showNotification('Screenshot saved!', '#4caf50');
+      });
+    };
+    document.head.appendChild(script);
+  });
+
+  document.getElementById('copyFen').addEventListener('click', () => {
+    navigator.clipboard.writeText(chess.fen()).then(() => {
+      showNotification('FEN copied!', '#4caf50');
+    }).catch(() => {
+      showNotification('Copy failed', '#ff6b6b');
+    });
+  });
+
+  document.getElementById('showHistory').addEventListener('click', () => {
+    if (moveHistory.length === 0) {
+      showNotification('No moves yet', '#ff9800');
+      return;
+    }
+    const historyText = moveHistory.map((h, i) => `${Math.floor(i/2)+1}${i%2===0?'.':''} ${h.move}`).join(' ');
+    document.getElementById('historyContent').textContent = historyText || 'No moves yet.';
+    document.getElementById('historyModal').classList.add('show');
+  });
+
+  // Close modals on outside click - removed since now handled inline
+  
+  // Initialize board
+  boardEl.innerHTML = generateBoard();
+  boardEl.querySelectorAll('.square').forEach(sqEl => {
+    sqEl.addEventListener('click', handleSquareClick);
+    sqEl.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      handleSquareClick(e);
+    });
+  });
+
+  makePalette();
+  chess.reset();
+  refreshBoard();
+  
+  console.log('Chess app initialized - mobile optimized!');
+}
+</script>
+</body>
+</html>
